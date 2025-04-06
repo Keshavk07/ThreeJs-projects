@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Scene with 3D Trees and HDRI Background</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; }
+  </style>
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/RGBELoader.js"></script> <!-- RGBELoader for HDRI -->
+  <!-- GLTFLoader -->
+  <script src="GLTFLoader.js"></script> 
+</head>
+<body>
+  <script>
+    // Scene
+    const scene = new THREE.Scene();
+
+    // Camera
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 7, 20);
+
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Controls
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+
+controls.autoRotate = true;
+controls.autoRotateSpeed = 1.0;
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+
+// Pause autoRotate on user interaction
+controls.addEventListener('start', () => controls.autoRotate = false);
+controls.addEventListener('end', () => {
+  setTimeout(() => controls.autoRotate = true, 5000); // Resume after 5 sec
+});
+
+    // Lights
+    scene.add(new THREE.AmbientLight(0x404040)); // Soft white light
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(5, 10, 5);
+    scene.add(light);
+
+    // HDRI Background (Realistic lighting and reflections)
+    const rgbeLoader = new THREE.RGBELoader();
+    rgbeLoader.load('night.hdr', function(hdrTexture) {
+      hdrTexture.mapping = THREE.EquirectangularReflectionMapping;
+      scene.environment = hdrTexture;
+      scene.background = hdrTexture;
+    });
+   
+    const particles = new THREE.Points(
+      new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([...Array(300).fill().flatMap(() => [(Math.random()-0.5)*30, Math.random()*5 + 1, (Math.random()-0.5)*30])], 3)),
+      new THREE.PointsMaterial({ color: 0xffffaa, size: 0.1 })
+    );
+    scene.add(particles);
+
+    
+const clock = new THREE.Clock();
+
+// Create the main platform geometry (Square)
+const platformGeometry = new THREE.BoxGeometry(60, 2, 60);
+const platformMaterial = new THREE.MeshStandardMaterial({
+  color: 0x3e3e3e,  // Dark stone color
+  roughness: 0.8,
+  metalness: 0.1,
+  map: new THREE.TextureLoader().load('https://images.unsplash.com/photo-1740920213049-8e32c93bbcfc?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')  // Use texture to get that weathered stone look
+});
+const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+platform.position.y = -1;
+scene.add(platform);
+
+const pillarGeometry = new THREE.CylinderGeometry(3, 3, 25, 32);
+
+const pillarMaterial = new THREE.MeshStandardMaterial({
+  color: 0x4b4b4b,  // Dark stone for pillars
+  roughness: 0.7,
+  metalness: 0.2,
+  map: new THREE.TextureLoader().load('https://images.unsplash.com/photo-1518636693090-8407756ab88b?q=80&w=1932&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')  // Ancient cracked stone texture
+});
+
+// Create pillars and position them at each corner of the platform
+const pillars = [];
+const positions = [
+  [-24, 7.5, -24],  // Bottom-left
+  [24, 7.5, -24],   // Bottom-right
+  [-24, 7.5, 24],   // Top-left
+  [24, 7.5, 24]     // Top-right
+];
+
+positions.forEach(position => {
+  const pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
+  pillar.position.set(...position);
+  scene.add(pillar);
+  pillars.push(pillar);
+});
+
+// Optional: Add glowing runes to pillars
+const runeMaterial = new THREE.MeshBasicMaterial({
+  color: 0x00ffcc,
+  emissive: 0x00ffcc,
+  emissiveIntensity: 0.5,
+  transparent: true,
+  opacity: 0.7
+});
+
+function createRune(position) {
+  const runeGeometry = new THREE.SphereGeometry(0.5, 8, 8);
+  const rune = new THREE.Mesh(runeGeometry, runeMaterial);
+  rune.position.set(position.x, position.y + 6, position.z);
+  scene.add(rune);
+}
+
+// Adding runes to each pillar
+pillars.forEach(pillar => {
+  createRune(pillar.position);
+});
+
+ // Add this to create the portal
+ function createPortal() {
+  const torusGeometry = new THREE.TorusGeometry(8, 0.6, 46, 100);
+  
+  // Create a golden, glowing material with spiritual vibes
+  const torusMaterial = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(0xFFD700),  // Golden color (spiritual gold)
+    emissive: new THREE.Color(0xFFCC00), // Emissive glow (subtle spiritual glow)
+    emissiveIntensity: 2,  // Glow intensity
+    metalness: 0.8,   // Make it shiny like gold
+    roughness: 0.3    // Smooth surface for better reflections
+  });
+
+  const portal = new THREE.Mesh(torusGeometry, torusMaterial);
+
+  // Rotate the torus to stand upright
+  portal.rotation.y = Math.PI / 2;  // Rotate 90 degrees on the X-axis to make it stand
+
+  // Position the portal in the scene (keep your fixed location)
+  portal.position.y = 15;
+  portal.position.x = 10;
+  portal.position.z = -15;
+  scene.add(portal);
+
+  // Lighting to enhance the spiritual golden glow
+  const ambientLight = new THREE.AmbientLight(0x404040, 1);  // Soft ambient light
+  scene.add(ambientLight);
+
+  const pointLight = new THREE.PointLight(0xFFFFFF, 1, 100, 2); // White point light
+  pointLight.position.set(15, 25, -20);  // Set a light source to illuminate the portal
+  scene.add(pointLight);
+
+  const spotLight = new THREE.SpotLight(0xFFD700, 1, 100, Math.PI / 4, 0.1, 2); // Golden spotlight
+  spotLight.position.set(10, 25, -10);  // Directional light for more focus on the portal
+  spotLight.target = portal;  // Spotlight focuses on the portal
+  scene.add(spotLight);
+
+  // Animate the portal glow and rotation
+  function animatePortal() {
+    const time = clock.getElapsedTime();
+    portal.material.emissiveIntensity = 1.5 + Math.sin(time * 2) * 0.5;  // Glowing effect
+    portal.rotation.z += 0.002;  // Slowly rotate the portal on the Z-axis
+    requestAnimationFrame(animatePortal);
+  }
+
+  animatePortal();
+}
+
+createPortal();
+
+function animatePillaredPlatform() {
+  const time = clock.getElapsedTime();
+
+  // Animate the platform to float gently
+  platform.position.y = -1 + Math.sin(time * 0.5) * 0.2;
+
+  // Rotate the pillars slowly for a mystical effect
+  pillars.forEach(pillar => {
+    pillar.rotation.y += 0.002;
+  });
+
+  // Animate glowing runes
+  scene.children.forEach(child => {
+    if (child.material && child.material.emissive) {
+      child.material.emissiveIntensity = 0.5 + Math.sin(time * 2) * 0.2;
+    }
+  });
+
+  // Let OrbitControls handle camera rotation (including auto-rotate)
+  controls.update();
+
+  requestAnimationFrame(animatePillaredPlatform);
+  renderer.render(scene, camera);
+}
+
+ animatePillaredPlatform();
+
+
+
+
+    // Load the tree model (you can replace with other 3D models as needed)
+    const loader = new THREE.GLTFLoader();
+    function loadTree(x, y, z) {
+      loader.load(
+        'island_tree_01_1k.gltf/island_tree_01_1k.gltf',
+        function (gltf) {
+          const tree = gltf.scene;
+          tree.scale.set(8, 8 ,8);
+          tree.position.set(4, y, z);
+          scene.add(tree);
+        },
+        undefined,
+        function (error) {
+          console.error('Error loading model:', error);
+        }
+      );
+    }
+
+    // Load a tree at specific coordinates
+    loadTree(3, -1, 5);
+    function loadBirdModel() {
+  loader.load(
+    'bird_orange/scene.gltf',
+    function (gltf) {
+      const bird = gltf.scene;
+
+      bird.scale.set(1, 1, 1);
+      bird.position.set(-2, 0.5, 10);
+      scene.add(bird);
+
+      // Setup animation mixer if there are animations
+      let mixer;
+      if (gltf.animations && gltf.animations.length) {
+        mixer = new THREE.AnimationMixer(bird);
+        gltf.animations.forEach((clip) => mixer.clipAction(clip).play());
+      }
+
+      // Movement settings
+      let direction = new THREE.Vector3(1, 0, 0); // Initial direction (X axis)
+      const speed = 0.05;
+
+      function animate() {
+        // Update mixer for animations
+        if (mixer) mixer.update(0.01);
+
+        // Save old position
+        const oldPosition = bird.position.clone();
+
+        // Move bird in the current direction
+        bird.position.addScaledVector(direction, speed);
+
+        // Calculate new direction based on movement
+        const newPosition = bird.position.clone();
+        const moveDir = newPosition.clone().sub(oldPosition).normalize();
+
+        // Make the bird face the direction it's moving
+        const angle = Math.atan2(moveDir.x, moveDir.z);
+        bird.rotation.y = angle;
+
+        // Optional: bounce off walls of the plane (assuming a plane of size 20x20)
+        if (Math.abs(bird.position.x) > 10) direction.x *= -1;
+        if (Math.abs(bird.position.z) > 10) direction.z *= -1;
+
+        requestAnimationFrame(animate);
+      }
+
+      animate();
+    },
+    undefined,
+    function (error) {
+      console.error('Error loading bird model:', error);
+    }
+  );
+}
+
+loadBirdModel();
+
+// Load the orange bird when the page loads
+loadBirdModel();
+
+function loadPhoenixBirdModel() {
+  loader.load(
+    'phoenix_bird/scene.gltf',  // Path to the scene.gltf file
+    function(gltf) {
+      const bird = gltf.scene;
+
+      // Adjust scale for the Phoenix bird without rotation
+      bird.scale.set(0.1, 0.1, 0.1);  // Set scale to 0.2
+      bird.position.set(-4, 3, -80);  // Adjust the Phoenix bird's position
+        bird.rotation.set(4, 10, 10); // No rotation
+      // Add the bird to the scene
+      scene.add(bird);
+
+      // Optional: Animation logic if the model has animations (like flight animation)
+      if (gltf.animations && gltf.animations.length) {
+        const mixer = new THREE.AnimationMixer(bird);
+        gltf.animations.forEach((clip) => mixer.clipAction(clip).play());
+
+        // Animation update loop
+        function animate() {
+          mixer.update(0.01);  // Update the mixer to animate
+          requestAnimationFrame(animate);
+        }
+        animate();
+      }
+    },
+    undefined,
+    function(error) {
+      console.error('Error loading Phoenix bird model:', error);
+    }
+  );
+}
+
+// Load the Phoenix bird when the page loads
+loadPhoenixBirdModel();
+
+    // Animation loop
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // Resize handling
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
